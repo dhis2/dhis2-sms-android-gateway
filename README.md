@@ -3,6 +3,7 @@ DHIS2-SMS-Android-Gateway
 This repository contains the android gateway app for testing the SMS sync functionality of the tracker capture app.
 
 **How to use it** 
+
 Ideally you want to test it with 2 android phones that have SIM cards :
 - Install the tracker capture app in one android device.
 	- Configure the SMS settings (gateway and enable submission)
