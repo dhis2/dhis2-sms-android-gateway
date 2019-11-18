@@ -55,7 +55,7 @@ public class MainActivity extends Activity{
     ToggleButton toggleForward;
     TextView textIPAddress;
     TextView tvLogs;
-    private static final int PERMISSION_SEND_SMS = 123;
+    private static final int PERMISSION_RECEIVED_SMS = 123;
 
     /** Called when the activity is first created. */
     @Override
@@ -123,22 +123,18 @@ public class MainActivity extends Activity{
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this,
                     new String[]{Manifest.permission.RECEIVE_SMS},
-                    PERMISSION_SEND_SMS);
+                    PERMISSION_RECEIVED_SMS);
         }
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
         switch (requestCode) {
-            case PERMISSION_SEND_SMS: {
-
+            case PERMISSION_RECEIVED_SMS: {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     // permission was granted
                     registerReceiver(new SmsReceiver(), new IntentFilter("android.provider.Telephony.SMS_RECEIVED"));
-                } else {
-                    // permission denied
                 }
-                return;
             }
         }
     }
@@ -192,18 +188,6 @@ public class MainActivity extends Activity{
             return false;
         }
     }
-    /*
-     * public String getLocalIpAddress() {
-     *
-     * try { for (Enumeration < NetworkInterface > en =
-     * NetworkInterface.getNetworkInterfaces(); en.hasMoreElements();) {
-     * NetworkInterface intf = en.nextElement(); for (Enumeration < InetAddress
-     * > enumIpAddr = intf.getInetAddresses(); enumIpAddr.hasMoreElements();) {
-     * InetAddress inetAddress = enumIpAddr.nextElement(); if
-     * (!inetAddress.isLoopbackAddress()) { return
-     * inetAddress.getHostAddress().toString(); } } } } catch (SocketException
-     * ex) { Log.e(TAG, ex.toString()); } return null; }
-     */
 
      class SmsReceiver extends BroadcastReceiver {
         private static final String TAG = "SmsReceiver";
@@ -220,7 +204,7 @@ public class MainActivity extends Activity{
             try {
 
                 this.context = context;
-
+                logMessage("  ");
                 logMessage("SMS Received");
 
                 SharedPreferences settings = context.getSharedPreferences(
@@ -279,12 +263,11 @@ public class MainActivity extends Activity{
             String logUrl = url+ "api/sms/inbound";
             logMessage("Server Url: "+ logUrl);
             logMessage("Sending SMS To dhis2ServerUrl: {");
-            logMessage("originator:" + originator);
-            logMessage("receivedDate:" + date);
-            logMessage("sentDate:" + date);
+            logMessage("originator: " + originator);
+            logMessage("receivedDate: " + date);
+            logMessage("sentDate: " + date);
             logMessage("smsEnconding: 1");
-            logMessage("body:" + body);
-
+            logMessage("body: " + body);
             logMessage("}");
 
             smsAPI.sendSMS(AuthGenerator.getAuthToken(user,password), incomingSMS).enqueue(new Callback<SMSResponse>() {
@@ -295,13 +278,13 @@ public class MainActivity extends Activity{
                         return;
                     }
                     logMessage("SMS Sent to the server " + response.code());
-                    logMessage("");
+                    logMessage("  ");
                 }
 
                 @Override
                 public void onFailure(Call<SMSResponse> call, Throwable t) {
                     logMessage("Something went wrong");
-                    logMessage("");
+                    logMessage("  ");
                 }
             });
         }
