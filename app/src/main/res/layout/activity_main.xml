@@ -54,16 +54,6 @@
             android:gravity="top"
             android:lines="1" />
 
-        <TextView
-            android:layout_width="fill_parent"
-            android:layout_height="wrap_content"
-            android:text="Commands to forward (comma separated)" />
-
-
-        <TextView
-            android:layout_width="fill_parent"
-            android:layout_height="wrap_content"
-            android:text="Forward SMS messages" />
 
         <ToggleButton
             android:id="@+id/toggleForward"
