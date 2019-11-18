@@ -10,6 +10,7 @@ Ideally you want to test it with 2 android phones that have SIM cards :
 - Install, compile and run the DHIS 2 Android gateway app in another device
 	- Make sure that you are accepting SMS permissions for this app
 	- Configure the user, password and dhis2 server URL (2.33 V) for ex: http://android2.dhis2.org:8080/
+	- Click on ***Save*** button and make sure that the button above this one contains the text ***Forward messages***
 - From the android capture app sync with SMS
 - Check that an alert shows up in the gateway app telling you that the message was delivered to the dhis2 server.
 - Go to dhis2 server mobile app > received SMS and verify the SMS is received with “PROCESSED” state. Then the information you modified in the app should be reflected in the server.
