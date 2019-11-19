@@ -75,6 +75,15 @@
             android:layout_height="wrap_content"
             android:text="(No IP address)" />
 
+        <TextView
+            android:paddingTop="10dp"
+            android:id="@+id/textLogs"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Logs" />
+
+
+
     </LinearLayout>
 
 </ScrollView >
