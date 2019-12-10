@@ -12,6 +12,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.telephony.SmsManager;
 import android.telephony.SmsMessage;
@@ -119,8 +120,9 @@ public class MainActivity extends Activity{
     }
 
     private void requestSmsPermission() {
-        // check permission is given
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+        if (Build.VERSION.SDK_INT <= 23){
+            registerReceiver(new SmsReceiver(), new IntentFilter("android.provider.Telephony.SMS_RECEIVED"));
+        } else if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this,
                     new String[]{Manifest.permission.RECEIVE_SMS},
                     PERMISSION_RECEIVED_SMS);
@@ -274,7 +276,13 @@ public class MainActivity extends Activity{
                 @Override
                 public void onResponse(Call<SMSResponse> call, Response<SMSResponse> response) {
                     if (response.code() > 304){
-                        logMessage(response.toString());
+                        String errorMessage;
+                        try {
+                            errorMessage = response.errorBody().string();
+                        } catch (Exception e){
+                            errorMessage = response.toString();
+                        }
+                        logMessage(errorMessage);
                         return;
                     }
                     logMessage("SMS Sent to the server " + response.code());
@@ -283,7 +291,7 @@ public class MainActivity extends Activity{
 
                 @Override
                 public void onFailure(Call<SMSResponse> call, Throwable t) {
-                    logMessage("Something went wrong");
+                    logMessage("Something went wrong, please check out your internet connection device/server");
                     logMessage("  ");
                 }
             });
