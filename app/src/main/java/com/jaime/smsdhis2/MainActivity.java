@@ -10,7 +10,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -24,13 +23,11 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
-
 import com.jaime.smsdhis2.network.AuthGenerator;
 import com.jaime.smsdhis2.network.IncomingSMS;
 import com.jaime.smsdhis2.network.RetrofitController;
 import com.jaime.smsdhis2.network.SMSResponse;
 import com.jaime.smsdhis2.network.SmSAPI;
-
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -38,7 +35,8 @@ import java.net.UnknownHostException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Enumeration;
-
+import de.adorsys.android.securestoragelibrary.SecurePreferences;
+import de.adorsys.android.securestoragelibrary.SecureStorageException;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -73,8 +71,6 @@ public class MainActivity extends Activity{
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        SharedPreferences settings = getSharedPreferences(PREFS_NAME, 0);
-
         setContentView(R.layout.activity_main);
 
         btnSave = findViewById(R.id.btnSave);
@@ -85,11 +81,11 @@ public class MainActivity extends Activity{
         textIPAddress = findViewById(R.id.textIPAddress);
         tvLogs = findViewById(R.id.textLogs);
 
-        txtURL.setText(settings.getString("dhis2.url",
+        txtURL.setText(SecurePreferences.getStringValue(getBaseContext(),"dhis2.url",
                 "http://android2.dhis2.org:8080/"));
-        txtUsername.setText(settings.getString("dhis2.username", "admin"));
-        txtPassword.setText(settings.getString("dhis2.password", "district"));
-        toggleForward.setChecked(settings.getBoolean("dhis2.forward", true));
+        txtUsername.setText(SecurePreferences.getStringValue(getBaseContext(),"dhis2.username", "admin"));
+        txtPassword.setText(SecurePreferences.getStringValue(getBaseContext(),"dhis2.password", "district"));
+        toggleForward.setChecked(SecurePreferences.getBooleanValue(getBaseContext(),"dhis2.forward", true));
 
         // Show IP address
         textIPAddress.setText("Listening at: http://" + getLocalIpAddress()+ ":8000/send?recipient={recipient}&content={content}");
@@ -103,13 +99,15 @@ public class MainActivity extends Activity{
                 String url = txtURL.getText().toString();
 
                 // Save it in preferences
-                SharedPreferences settings = getSharedPreferences(PREFS_NAME, 0);
-                SharedPreferences.Editor editor = settings.edit();
-                editor.putString("dhis2.username", username);
-                editor.putString("dhis2.password", password);
-                editor.putString("dhis2.url", url);
-                editor.putBoolean("dhis2.forward", toggleForward.isChecked());
-                editor.commit();
+                try {
+                    SecurePreferences.setValue(getBaseContext(),"dhis2.username", username);
+                    SecurePreferences.setValue(getBaseContext(), "dhis2.password", password);
+                    SecurePreferences.setValue(getBaseContext(),"dhis2.url", url);
+                    SecurePreferences.setValue(getBaseContext(),"dhis2.forward", toggleForward.isChecked());
+                } catch (SecureStorageException e) {
+                    e.printStackTrace();
+                }
+
                 Toast.makeText(getApplicationContext(), "Settings saved",
                         Toast.LENGTH_SHORT).show();
 
@@ -209,11 +207,8 @@ public class MainActivity extends Activity{
                 logMessage("  ");
                 logMessage("SMS Received");
 
-                SharedPreferences settings = context.getSharedPreferences(
-                        PREFS_NAME, 0);
-                boolean forward = settings.getBoolean("dhis2.forward", false);
-                String commands = settings.getString("dhis2.commands", "");
-
+                boolean forward = SecurePreferences.getBooleanValue(getBaseContext(),"dhis2.forward", false);
+                String commands = SecurePreferences.getStringValue(getBaseContext(),"dhis2.commands", "");
 
                 if (!forward || commands == null) {
                     return;
@@ -234,13 +229,16 @@ public class MainActivity extends Activity{
                                 ;
                         Log.d(TAG, "message before parsing=(" + command + ")");
 
-                        urlString = settings
-                                .getString("dhis2.url",
-                                        "http://yourdhis2url/api/");
-                        username = settings.getString("dhis2.username",
+                        urlString = SecurePreferences.getStringValue(getBaseContext(), "dhis2.url",
+                                "http://yourdhis2url/api/");
+
+                        username = SecurePreferences.getStringValue(getBaseContext(), "dhis2.username",
                                 "admin");
-                        password = settings.getString("dhis2.password",
+
+                        password = SecurePreferences.getStringValue(getBaseContext(), "dhis2.password",
                                 "district");
+
+
 
                         sendSMSToDhis2Server(username,password,urlString,
                                 msgs[i].getOriginatingAddress(), msgs[i].getMessageBody());
