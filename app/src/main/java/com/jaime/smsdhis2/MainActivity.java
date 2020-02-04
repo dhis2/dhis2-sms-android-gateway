@@ -28,6 +28,7 @@ import com.jaime.smsdhis2.network.IncomingSMS;
 import com.jaime.smsdhis2.network.RetrofitController;
 import com.jaime.smsdhis2.network.SMSResponse;
 import com.jaime.smsdhis2.network.SmSAPI;
+
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -44,8 +45,6 @@ import retrofit2.Response;
 public class MainActivity extends Activity{
 
     private static String TAG = "MainActivity";
-    public static final String PREFS_NAME = "DHIS2PrefsFile";
-
 
     Button btnSave;
     EditText txtPassword;
@@ -54,7 +53,7 @@ public class MainActivity extends Activity{
     ToggleButton toggleForward;
     TextView textIPAddress;
     TextView tvLogs;
-    private static final int PERMISSION_RECEIVED_SMS = 123;
+    private static final int PERMISSION_CODE = 123;
 
     /** Called when the activity is first created. */
     @Override
@@ -62,10 +61,7 @@ public class MainActivity extends Activity{
         super.onCreate(savedInstanceState);
 
         Intent i = new Intent(this, WebService.class);
-        // potentially add data to the intent
-        // i.putExtra("KEY1", "Value to be used by the service");
         this.startService(i);
-        // bindService(i, connection, this.BIND_AUTO_CREATE);
 
         Log.i(TAG, "Created thread for server socket.");
 
@@ -86,10 +82,8 @@ public class MainActivity extends Activity{
         txtUsername.setText(SecurePreferences.getStringValue(getBaseContext(),"dhis2.username", "admin"));
         txtPassword.setText(SecurePreferences.getStringValue(getBaseContext(),"dhis2.password", "district"));
         toggleForward.setChecked(SecurePreferences.getBooleanValue(getBaseContext(),"dhis2.forward", true));
-
         // Show IP address
         textIPAddress.setText("Listening at: http://" + getLocalIpAddress()+ ":8000/send?recipient={recipient}&content={content}");
-        IntentFilter intentFilter = new IntentFilter();
 
         //registerReceiver(SmsReceiver, intentFilter.addAction("android.provider.Telephony.SMS_RECEIVED"););
         btnSave.setOnClickListener(new View.OnClickListener() {
@@ -117,34 +111,31 @@ public class MainActivity extends Activity{
         requestSmsPermission();
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+    }
+
     private void requestSmsPermission() {
         if (Build.VERSION.SDK_INT <= 23){
             registerReceiver(new SmsReceiver(), new IntentFilter("android.provider.Telephony.SMS_RECEIVED"));
-        } else if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.RECEIVE_SMS},
-                    PERMISSION_RECEIVED_SMS);
+        } else if ((ContextCompat.checkSelfPermission(this, Manifest.permission.RECEIVE_SMS) != PackageManager.PERMISSION_GRANTED)
+                || (ContextCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED)){
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECEIVE_SMS,
+                    Manifest.permission.SEND_SMS}, PERMISSION_CODE);
         }
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
         switch (requestCode) {
-            case PERMISSION_RECEIVED_SMS: {
+            case PERMISSION_CODE: {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     // permission was granted
                     registerReceiver(new SmsReceiver(), new IntentFilter("android.provider.Telephony.SMS_RECEIVED"));
                 }
             }
         }
-    }
-
-    // ---sends an SMS message to another device---
-    private void sendSMS(String phoneNumber, String message) {
-        PendingIntent pi = PendingIntent.getActivity(this, 0, new Intent(this,
-                MainActivity.class), 0);
-        SmsManager sms = SmsManager.getDefault();
-        sms.sendTextMessage(phoneNumber, null, message, pi, null);
     }
 
     public String getLocalIpAddress() {
@@ -192,7 +183,6 @@ public class MainActivity extends Activity{
      class SmsReceiver extends BroadcastReceiver {
         private static final String TAG = "SmsReceiver";
 
-        public static final String PREFS_NAME = "DHIS2PrefsFile";
         String urlString;
         String username;
         String password;
@@ -207,14 +197,6 @@ public class MainActivity extends Activity{
                 logMessage("  ");
                 logMessage("SMS Received");
 
-                boolean forward = SecurePreferences.getBooleanValue(getBaseContext(),"dhis2.forward", false);
-                String commands = SecurePreferences.getStringValue(getBaseContext(),"dhis2.commands", "");
-
-                if (!forward || commands == null) {
-                    return;
-                }
-
-                // ---get the SMS message passed in---
                 Bundle bundle = intent.getExtras();
                 SmsMessage[] msgs = null;
                 if (bundle != null) {
@@ -225,20 +207,14 @@ public class MainActivity extends Activity{
 
                         msgs[i] = SmsMessage.createFromPdu((byte[]) pdus[i]);
 
-                        String command = msgs[i].getMessageBody()
-                                ;
+                        String command = msgs[i].getMessageBody();
                         Log.d(TAG, "message before parsing=(" + command + ")");
-
                         urlString = SecurePreferences.getStringValue(getBaseContext(), "dhis2.url",
                                 "http://yourdhis2url/api/");
-
                         username = SecurePreferences.getStringValue(getBaseContext(), "dhis2.username",
                                 "admin");
-
                         password = SecurePreferences.getStringValue(getBaseContext(), "dhis2.password",
                                 "district");
-
-
 
                         sendSMSToDhis2Server(username,password,urlString,
                                 msgs[i].getOriginatingAddress(), msgs[i].getMessageBody());
@@ -251,8 +227,8 @@ public class MainActivity extends Activity{
             }
         }
 
-        public void sendSMSToDhis2Server(String user, String password, String url,
-                                         String originator, String body){
+         public void sendSMSToDhis2Server(String user, String password, String url,
+                                         final String originator, String body){
 
             RetrofitController retrofitController = new RetrofitController(url);
             SmSAPI smsAPI = retrofitController.start();
@@ -283,13 +259,18 @@ public class MainActivity extends Activity{
                         logMessage(errorMessage);
                         return;
                     }
-                    logMessage("SMS Sent to the server " + response.code());
+                    logMessage("SMS Sent to the server. Response code: " + response.code());
                     logMessage("  ");
+
+                    //change 1 with real submission ID
+                    String smsConfirmationResponse = "1:0::Submission has been processed successfully";
+                    sendSMS(originator, smsConfirmationResponse, "Confirmation SMS sent to android app");
                 }
 
                 @Override
                 public void onFailure(Call<SMSResponse> call, Throwable t) {
                     logMessage("Something went wrong, please check out your internet connection device/server");
+                    logMessage("Message was not delivered successfully to dhis2 server");
                     logMessage("  ");
                 }
             });
@@ -302,5 +283,20 @@ public class MainActivity extends Activity{
                 tvLogs.setText(finalLogs);
             }
         }
+
+         private void sendSMS(String phoneNumber, String message, String logMessage) {
+             if (ContextCompat.checkSelfPermission(getBaseContext(), Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED){
+                 logMessage("  ");
+                 logMessage("Can't send confirmation sms to lack of permissions");
+                 return;
+             }
+
+             String SENT = "SMS_SENT";
+             PendingIntent pi = PendingIntent.getBroadcast(context, 0,new Intent(SENT), 0);
+             SmsManager sms = SmsManager.getDefault();
+             sms.sendTextMessage(phoneNumber, null, message, pi, null);
+             logMessage("  ");
+             logMessage(logMessage);
+         }
     }
 }
