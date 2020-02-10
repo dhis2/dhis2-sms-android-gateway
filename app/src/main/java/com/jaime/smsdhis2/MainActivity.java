@@ -10,7 +10,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -24,7 +23,6 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
-
 import com.jaime.smsdhis2.network.AuthGenerator;
 import com.jaime.smsdhis2.network.IncomingSMS;
 import com.jaime.smsdhis2.network.RetrofitController;
@@ -38,7 +36,8 @@ import java.net.UnknownHostException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Enumeration;
-
+import de.adorsys.android.securestoragelibrary.SecurePreferences;
+import de.adorsys.android.securestoragelibrary.SecureStorageException;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -46,8 +45,6 @@ import retrofit2.Response;
 public class MainActivity extends Activity{
 
     private static String TAG = "MainActivity";
-    public static final String PREFS_NAME = "DHIS2PrefsFile";
-
 
     Button btnSave;
     EditText txtPassword;
@@ -56,7 +53,7 @@ public class MainActivity extends Activity{
     ToggleButton toggleForward;
     TextView textIPAddress;
     TextView tvLogs;
-    private static final int PERMISSION_RECEIVED_SMS = 123;
+    private static final int PERMISSION_CODE = 123;
 
     /** Called when the activity is first created. */
     @Override
@@ -64,16 +61,11 @@ public class MainActivity extends Activity{
         super.onCreate(savedInstanceState);
 
         Intent i = new Intent(this, WebService.class);
-        // potentially add data to the intent
-        // i.putExtra("KEY1", "Value to be used by the service");
         this.startService(i);
-        // bindService(i, connection, this.BIND_AUTO_CREATE);
 
         Log.i(TAG, "Created thread for server socket.");
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-
-        SharedPreferences settings = getSharedPreferences(PREFS_NAME, 0);
 
         setContentView(R.layout.activity_main);
 
@@ -85,15 +77,13 @@ public class MainActivity extends Activity{
         textIPAddress = findViewById(R.id.textIPAddress);
         tvLogs = findViewById(R.id.textLogs);
 
-        txtURL.setText(settings.getString("dhis2.url",
+        txtURL.setText(SecurePreferences.getStringValue(getBaseContext(),"dhis2.url",
                 "http://android2.dhis2.org:8080/"));
-        txtUsername.setText(settings.getString("dhis2.username", "admin"));
-        txtPassword.setText(settings.getString("dhis2.password", "district"));
-        toggleForward.setChecked(settings.getBoolean("dhis2.forward", true));
-
+        txtUsername.setText(SecurePreferences.getStringValue(getBaseContext(),"dhis2.username", "admin"));
+        txtPassword.setText(SecurePreferences.getStringValue(getBaseContext(),"dhis2.password", "district"));
+        toggleForward.setChecked(SecurePreferences.getBooleanValue(getBaseContext(),"dhis2.forward", true));
         // Show IP address
         textIPAddress.setText("Listening at: http://" + getLocalIpAddress()+ ":8000/send?recipient={recipient}&content={content}");
-        IntentFilter intentFilter = new IntentFilter();
 
         //registerReceiver(SmsReceiver, intentFilter.addAction("android.provider.Telephony.SMS_RECEIVED"););
         btnSave.setOnClickListener(new View.OnClickListener() {
@@ -103,13 +93,15 @@ public class MainActivity extends Activity{
                 String url = txtURL.getText().toString();
 
                 // Save it in preferences
-                SharedPreferences settings = getSharedPreferences(PREFS_NAME, 0);
-                SharedPreferences.Editor editor = settings.edit();
-                editor.putString("dhis2.username", username);
-                editor.putString("dhis2.password", password);
-                editor.putString("dhis2.url", url);
-                editor.putBoolean("dhis2.forward", toggleForward.isChecked());
-                editor.commit();
+                try {
+                    SecurePreferences.setValue(getBaseContext(),"dhis2.username", username);
+                    SecurePreferences.setValue(getBaseContext(), "dhis2.password", password);
+                    SecurePreferences.setValue(getBaseContext(),"dhis2.url", url);
+                    SecurePreferences.setValue(getBaseContext(),"dhis2.forward", toggleForward.isChecked());
+                } catch (SecureStorageException e) {
+                    e.printStackTrace();
+                }
+
                 Toast.makeText(getApplicationContext(), "Settings saved",
                         Toast.LENGTH_SHORT).show();
 
@@ -119,34 +111,31 @@ public class MainActivity extends Activity{
         requestSmsPermission();
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+    }
+
     private void requestSmsPermission() {
         if (Build.VERSION.SDK_INT <= 23){
             registerReceiver(new SmsReceiver(), new IntentFilter("android.provider.Telephony.SMS_RECEIVED"));
-        } else if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.RECEIVE_SMS},
-                    PERMISSION_RECEIVED_SMS);
+        } else if ((ContextCompat.checkSelfPermission(this, Manifest.permission.RECEIVE_SMS) != PackageManager.PERMISSION_GRANTED)
+                || (ContextCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED)){
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECEIVE_SMS,
+                    Manifest.permission.SEND_SMS}, PERMISSION_CODE);
         }
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
         switch (requestCode) {
-            case PERMISSION_RECEIVED_SMS: {
+            case PERMISSION_CODE: {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     // permission was granted
                     registerReceiver(new SmsReceiver(), new IntentFilter("android.provider.Telephony.SMS_RECEIVED"));
                 }
             }
         }
-    }
-
-    // ---sends an SMS message to another device---
-    private void sendSMS(String phoneNumber, String message) {
-        PendingIntent pi = PendingIntent.getActivity(this, 0, new Intent(this,
-                MainActivity.class), 0);
-        SmsManager sms = SmsManager.getDefault();
-        sms.sendTextMessage(phoneNumber, null, message, pi, null);
     }
 
     public String getLocalIpAddress() {
@@ -194,7 +183,6 @@ public class MainActivity extends Activity{
      class SmsReceiver extends BroadcastReceiver {
         private static final String TAG = "SmsReceiver";
 
-        public static final String PREFS_NAME = "DHIS2PrefsFile";
         String urlString;
         String username;
         String password;
@@ -209,17 +197,6 @@ public class MainActivity extends Activity{
                 logMessage("  ");
                 logMessage("SMS Received");
 
-                SharedPreferences settings = context.getSharedPreferences(
-                        PREFS_NAME, 0);
-                boolean forward = settings.getBoolean("dhis2.forward", false);
-                String commands = settings.getString("dhis2.commands", "");
-
-
-                if (!forward || commands == null) {
-                    return;
-                }
-
-                // ---get the SMS message passed in---
                 Bundle bundle = intent.getExtras();
                 SmsMessage[] msgs = null;
                 if (bundle != null) {
@@ -230,16 +207,13 @@ public class MainActivity extends Activity{
 
                         msgs[i] = SmsMessage.createFromPdu((byte[]) pdus[i]);
 
-                        String command = msgs[i].getMessageBody()
-                                ;
+                        String command = msgs[i].getMessageBody();
                         Log.d(TAG, "message before parsing=(" + command + ")");
-
-                        urlString = settings
-                                .getString("dhis2.url",
-                                        "http://yourdhis2url/api/");
-                        username = settings.getString("dhis2.username",
+                        urlString = SecurePreferences.getStringValue(getBaseContext(), "dhis2.url",
+                                "http://yourdhis2url/api/");
+                        username = SecurePreferences.getStringValue(getBaseContext(), "dhis2.username",
                                 "admin");
-                        password = settings.getString("dhis2.password",
+                        password = SecurePreferences.getStringValue(getBaseContext(), "dhis2.password",
                                 "district");
 
                         sendSMSToDhis2Server(username,password,urlString,
@@ -253,8 +227,8 @@ public class MainActivity extends Activity{
             }
         }
 
-        public void sendSMSToDhis2Server(String user, String password, String url,
-                                         String originator, String body){
+         public void sendSMSToDhis2Server(String user, String password, String url,
+                                         final String originator, String body){
 
             RetrofitController retrofitController = new RetrofitController(url);
             SmSAPI smsAPI = retrofitController.start();
@@ -285,13 +259,18 @@ public class MainActivity extends Activity{
                         logMessage(errorMessage);
                         return;
                     }
-                    logMessage("SMS Sent to the server " + response.code());
+                    logMessage("SMS Sent to the server. Response code: " + response.code());
                     logMessage("  ");
+
+                    //change 1 with real submission ID
+                    String smsConfirmationResponse = "1:0::Submission has been processed successfully";
+                    sendSMS(originator, smsConfirmationResponse, "Confirmation SMS sent to android app");
                 }
 
                 @Override
                 public void onFailure(Call<SMSResponse> call, Throwable t) {
                     logMessage("Something went wrong, please check out your internet connection device/server");
+                    logMessage("Message was not delivered successfully to dhis2 server");
                     logMessage("  ");
                 }
             });
@@ -304,5 +283,20 @@ public class MainActivity extends Activity{
                 tvLogs.setText(finalLogs);
             }
         }
+
+         private void sendSMS(String phoneNumber, String message, String logMessage) {
+             if (ContextCompat.checkSelfPermission(getBaseContext(), Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED){
+                 logMessage("  ");
+                 logMessage("Can't send confirmation sms to lack of permissions");
+                 return;
+             }
+
+             String SENT = "SMS_SENT";
+             PendingIntent pi = PendingIntent.getBroadcast(context, 0,new Intent(SENT), 0);
+             SmsManager sms = SmsManager.getDefault();
+             sms.sendTextMessage(phoneNumber, null, message, pi, null);
+             logMessage("  ");
+             logMessage(logMessage);
+         }
     }
 }

@@ -72,15 +72,12 @@ public class WebService extends Service {
         public void run() {
             try {
 
-                //Log.i(TAG, "IP Address:" + getLocalIpAddress());
                 server = new ServerSocket(8000);
 
                 while (true) {
-
                     Socket socket = server.accept();
                     ConnectionHandler conn = new ConnectionHandler(socket);
                     conn.start();
-
                 }
             } catch (IOException e) {
                 Log.e(TAG, e.getMessage());
