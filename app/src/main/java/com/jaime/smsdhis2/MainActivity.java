@@ -262,6 +262,7 @@ public class MainActivity extends Activity{
                     logMessage("SMS Sent to the server. Response code: " + response.code());
                     logMessage("  ");
 
+
                     //change 1 with real submission ID
                     String smsConfirmationResponse = "1:0::Submission has been processed successfully";
                     sendSMS(originator, smsConfirmationResponse, "Confirmation SMS sent to android app");
@@ -271,6 +272,7 @@ public class MainActivity extends Activity{
                 public void onFailure(Call<SMSResponse> call, Throwable t) {
                     logMessage("Something went wrong, please check out your internet connection device/server");
                     logMessage("Message was not delivered successfully to dhis2 server");
+                    sendSMS(originator, "Error sync could not be performed", "Confirmation SMS sent to android app");
                     logMessage("  ");
                 }
             });
