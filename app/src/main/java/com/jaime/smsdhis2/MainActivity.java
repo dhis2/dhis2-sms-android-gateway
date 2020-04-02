@@ -42,6 +42,8 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
+import static android.provider.Telephony.Sms.Intents.SMS_RECEIVED_ACTION;
+
 public class MainActivity extends Activity{
 
     private static String TAG = "MainActivity";
@@ -107,22 +109,23 @@ public class MainActivity extends Activity{
 
             }
         });
-
-        requestSmsPermission();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        requestSmsPermission();
     }
 
     private void requestSmsPermission() {
         if (Build.VERSION.SDK_INT <= 23){
-            registerReceiver(new SmsReceiver(), new IntentFilter("android.provider.Telephony.SMS_RECEIVED"));
+            IntentFilter intentFilter = new IntentFilter(SMS_RECEIVED_ACTION);
+            intentFilter.setPriority(999);
+            registerReceiver(new SmsReceiver(), intentFilter);
         } else if ((ContextCompat.checkSelfPermission(this, Manifest.permission.RECEIVE_SMS) != PackageManager.PERMISSION_GRANTED)
                 || (ContextCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED)){
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECEIVE_SMS,
-                    Manifest.permission.SEND_SMS}, PERMISSION_CODE);
+                    Manifest.permission.SEND_SMS, Manifest.permission.READ_SMS}, PERMISSION_CODE);
         }
     }
 
@@ -132,7 +135,9 @@ public class MainActivity extends Activity{
             case PERMISSION_CODE: {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     // permission was granted
-                    registerReceiver(new SmsReceiver(), new IntentFilter("android.provider.Telephony.SMS_RECEIVED"));
+                    IntentFilter intentFilter = new IntentFilter(SMS_RECEIVED_ACTION);
+                    intentFilter.setPriority(999);
+                    registerReceiver(new SmsReceiver(), intentFilter);
                 }
             }
         }
