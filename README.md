@@ -15,3 +15,5 @@ Ideally you want to test it with 2 android phones that have SIM cards :
 - From the android capture app sync with SMS
 - Check that an alert shows up in the gateway app telling you that the message was delivered to the dhis2 server.
 - Go to dhis2 server mobile app > received SMS and verify the SMS is received with “PROCESSED” state. Then the information you modified in the app should be reflected in the server.
+
+**Important:** If you send long SMSs (more than 160 chars) this app does not re-assemble the different parts. 
